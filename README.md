@@ -11,8 +11,8 @@ After doing this, this macro will make a function of this system call, and this 
 3. Find the real worked function, and it will work.
 
 files:
-/include/unistd.h
-/kernel/system_call.S
-/include/linux/sys.h
-/kernel/who.c
+[/include/unistd.h](oslab/linux-0.11/include/unistd.h)
+[/kernel/system_call.S](oslab/linux-0.11/kernel/system_call.s)
+[/include/linux/sys.h](oslab/linux-0.11/include/linux/sys.h)
+[/kernel/who.c](oslab/linux-0.11/kernel/who.c)
 
