@@ -501,5 +501,5 @@
 00021f84 B _ctmp
 00021f88 B errno
 00021f8c B ___strtok
-00021f90 A _end
 00021f90 A end
+00021f90 A _end

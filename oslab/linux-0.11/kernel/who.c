@@ -13,7 +13,7 @@ int sys_iam(const char* name){
     if(i>23){
         return -EINVAL;
     }
-    printk("%d]\n",i);
+    printk("[%d]\n",i);
     i = 0;
     while(myname[i] = get_fs_byte(name + i)!='\0'){
         i++;
