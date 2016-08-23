@@ -90,6 +90,8 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->utime = p->stime = 0;
 	p->cutime = p->cstime = 0;
 	p->start_time = jiffies;
+	// This is print for creating of a process.
+	fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'N', jiffies);
 	p->tss.back_link = 0;
 	p->tss.esp0 = PAGE_SIZE + (long) p;
 	p->tss.ss0 = 0x10;
