@@ -500,5 +500,5 @@
 00022de4 B _ctmp
 00022de8 B errno
 00022dec B ___strtok
-00022df0 A _end
 00022df0 A end
+00022df0 A _end
