@@ -159,6 +159,8 @@ void sleep_on(struct task_struct **p)
 	tmp = *p;
 	*p = current;
 	current->state = TASK_UNINTERRUPTIBLE;
+	// The current process is sleeped.
+	fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'W', jiffies);
 	schedule();
 	if (tmp)
 		tmp->state=0;
@@ -179,7 +181,7 @@ repeat:	current->state = TASK_INTERRUPTIBLE;
 	if (*p && *p != current) {
 		(**p).state=0;
 		goto repeat;
-	}
+	} 
 	*p=NULL;
 	if (tmp)
 		tmp->state=0;
