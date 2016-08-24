@@ -1,9 +1,6 @@
 Before printing process information in `/var/process.log`, we have two things to do.
 
-1. Create a standard output which in number 3, and the output location is `/var/process/log`. So we can call the function
-
-	fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'R', jiffies); 
-
+1. Create a standard output which in number 3, and the output location is `/var/process/log`. So we can call the function`fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'R', jiffies); 
 to echo something we want into this file.
 
 2. As we seen, there is 5 parameters in function `fprintk`
