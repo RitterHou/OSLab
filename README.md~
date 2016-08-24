@@ -8,10 +8,10 @@ to echo something we want into this file.
 
 2. As we seen, there is 5 parameters in function `fprintk`
 
-	1. standard output number.
-	2. string
-	3. pid
-	4. status, like N J R W E
-	5. jiffies, this is a parameter which save how long the OS has runned.
+	*. standard output number.
+	*. string
+	*. pid
+	*. status, like N J R W E
+	*. jiffies, this is a parameter which save how long the OS has runned.
 
 What is jiffies? it's a parameter which binding to the Clock. every 10ms, jiffies plus 1, so we can use jiffies to get the time since OS started.
