@@ -1,26 +1,34 @@
 #ifndef _SCHED_H
 #define _SCHED_H
+
 #define NR_TASKS 64
 #define HZ 100
+
 #define FIRST_TASK task[0]
 #define LAST_TASK task[NR_TASKS-1]
+
 #include <linux/head.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <signal.h>
+
 #if (NR_OPEN > 32)
 #error "Currently the close-on-exec-flags are in one word, max 32 files/proc"
 #endif
+
 #define TASK_RUNNING		0
 #define TASK_INTERRUPTIBLE	1
 #define TASK_UNINTERRUPTIBLE	2
 #define TASK_ZOMBIE		3
 #define TASK_STOPPED		4
+
 #ifndef NULL
 #define NULL ((void *) 0)
 #endif
+
 extern int copy_page_tables(unsigned long from, unsigned long to, long size);
 extern int free_page_tables(unsigned long from, unsigned long size);
+
 extern void sched_init(void);
 extern void schedule(void);
 extern void trap_init(void);
@@ -28,7 +36,9 @@ extern void trap_init(void);
 volatile void panic(const char * str);
 #endif
 extern int tty_write(unsigned minor,char * buf,int count);
+
 typedef int (*fn_ptr)();
+
 struct i387_struct {
 	long	cwd;
 	long	swd;
@@ -39,6 +49,7 @@ struct i387_struct {
 	long	fos;
 	long	st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
 };
+
 struct tss_struct {
 	long	back_link;	/* 16 high bits zero */
 	long	esp0;
@@ -65,12 +76,12 @@ struct tss_struct {
 	long	trace_bitmap;	/* bits: trace 0, bitmap 16-31 */
 	struct i387_struct i387;
 };
+
 struct task_struct {
 /* these are hardcoded - don't touch */
 	long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	long counter;
 	long priority;
-	long kernelstack;
 	long signal;
 	struct sigaction sigaction[32];
 	long blocked;	/* bitmap of masked signals */
@@ -96,12 +107,13 @@ struct task_struct {
 /* tss for this task */
 	struct tss_struct tss;
 };
+
 /*
  *  INIT_TASK is used to set up the first task table, touch at
  * your own risk!. Base=0, limit=0x9ffff (=640kB)
  */
 #define INIT_TASK \
-/* state etc */	{ 0,15,15, PAGE_SIZE+(long)&init_task,\
+/* state etc */	{ 0,15,15, \
 /* signals */	0,{{},},0, \
 /* ec,brk... */	0,0,0,0,0,0, \
 /* pid etc.. */	0,-1,0,0,0, \
@@ -122,17 +134,20 @@ struct task_struct {
 		{} \
 	}, \
 }
-extern struct tss_struct *tss;
+
 extern struct task_struct *task[NR_TASKS];
 extern struct task_struct *last_task_used_math;
 extern struct task_struct *current;
 extern long volatile jiffies;
 extern long startup_time;
+
 #define CURRENT_TIME (startup_time+jiffies/HZ)
+
 extern void add_timer(long jiffies, void (*fn)(void));
 extern void sleep_on(struct task_struct ** p);
 extern void interruptible_sleep_on(struct task_struct ** p);
 extern void wake_up(struct task_struct ** p);
+
 /*
  * Entry into gdt where to find first TSS. 0-nul, 1-cs, 2-ds, 3-syscall
  * 4-TSS0, 5-LDT0, 6-TSS1 etc ...
@@ -155,7 +170,7 @@ __asm__("str %%ax\n\t" \
  * This also clears the TS-flag if the task we switched to has used
  * tha math co-processor latest.
  */
-/*#define switch_to(n) {\
+#define switch_to(n) {\
 struct {long a,b;} __tmp; \
 __asm__("cmpl %%ecx,current\n\t" \
 	"je 1f\n\t" \
@@ -168,8 +183,10 @@ __asm__("cmpl %%ecx,current\n\t" \
 	"1:" \
 	::"m" (*&__tmp.a),"m" (*&__tmp.b), \
 	"d" (_TSS(n)),"c" ((long) task[n])); \
-}*/
+}
+
 #define PAGE_ALIGN(n) (((n)+0xfff)&0xfffff000)
+
 #define _set_base(addr,base)  \
 __asm__ ("push %%edx\n\t" \
 	"movw %%dx,%0\n\t" \
@@ -182,6 +199,7 @@ __asm__ ("push %%edx\n\t" \
 	 "m" (*((addr)+7)), \
 	 "d" (base) \
 	)
+
 #define _set_limit(addr,limit) \
 __asm__ ("push %%edx\n\t" \
 	"movw %%dx,%0\n\t" \
@@ -195,8 +213,10 @@ __asm__ ("push %%edx\n\t" \
 	 "m" (*((addr)+6)), \
 	 "d" (limit) \
 	)
+
 #define set_base(ldt,base) _set_base( ((char *)&(ldt)) , (base) )
 #define set_limit(ldt,limit) _set_limit( ((char *)&(ldt)) , (limit-1)>>12 )
+
 /**
 #define _get_base(addr) ({\
 unsigned long __base; \
@@ -211,6 +231,7 @@ __asm__("movb %3,%%dh\n\t" \
         :"memory"); \
 __base;})
 **/
+
 static inline unsigned long _get_base(char * addr)
 {
          unsigned long __base;
@@ -224,9 +245,12 @@ static inline unsigned long _get_base(char * addr)
                   "m" (*((addr)+7)));
          return __base;
 }
+
 #define get_base(ldt) _get_base( ((char *)&(ldt)) )
+
 #define get_limit(segment) ({ \
 unsigned long __limit; \
 __asm__("lsll %1,%0\n\tincl %0":"=r" (__limit):"r" (segment)); \
 __limit;})
+
 #endif
