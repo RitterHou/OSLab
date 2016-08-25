@@ -1,6 +1,6 @@
 #ifndef _UNISTD_H
 #define _UNISTD_H
-
+#define sem_t int
 /* ok, this may be a joke, but I'm working on it */
 #define _POSIX_VERSION 198808L
 
@@ -129,6 +129,10 @@
 #define __NR_ssetmask	69
 #define __NR_setreuid	70
 #define __NR_setregid	71
+#define __NR_sem_open	72
+#define __NR_sem_wait	73
+#define __NR_sem_post	74
+#define __NR_sem_unlink	75
 
 #define _syscall0(type,name) \
 type name(void) \
@@ -249,5 +253,9 @@ int dup2(int oldfd, int newfd);
 int getppid(void);
 pid_t getpgrp(void);
 pid_t setsid(void);
+sem_t sem_open(const char *name, unsigned int value);
+int sem_wait(sem_t sem);
+int sem_post(sem_t sem);
+int sem_unlink(const char *name);
 
 #endif
