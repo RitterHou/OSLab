@@ -3,7 +3,6 @@
  *
  *  (C) 1991  Linus Torvalds
  */
-
 /*
  * 'sched.c' is the main kernel file. It contains scheduling primitives
  * (sleep_on, wakeup, schedule etc) as well as a number of simple system
@@ -17,55 +16,41 @@
 #include <asm/system.h>
 #include <asm/io.h>
 #include <asm/segment.h>
-
 #include <signal.h>
-
 #define _S(nr) (1<<((nr)-1))
 #define _BLOCKABLE (~(_S(SIGKILL) | _S(SIGSTOP)))
-
 void show_task(int nr,struct task_struct * p)
 {
 	int i,j = 4096-sizeof(struct task_struct);
-
 	printk("%d: pid=%d, state=%d, ",nr,p->pid,p->state);
 	i=0;
 	while (i<j && !((char *)(p+1))[i])
 		i++;
 	printk("%d (of %d) chars free in kernel stack\n\r",i,j);
 }
-
 void show_stat(void)
 {
 	int i;
-
 	for (i=0;i<NR_TASKS;i++)
 		if (task[i])
 			show_task(i,task[i]);
 }
-
 #define LATCH (1193180/HZ)
-
 extern void mem_use(void);
-
 extern int timer_interrupt(void);
 extern int system_call(void);
-
 union task_union {
 	struct task_struct task;
 	char stack[PAGE_SIZE];
 };
-
 static union task_union init_task = {INIT_TASK,};
-
 long volatile jiffies=0;
 long startup_time=0;
 struct task_struct *current = &(init_task.task);
 struct task_struct *last_task_used_math = NULL;
-
+struct tss_struct *tss=&(init_task.task.tss);	/* !!! */
 struct task_struct * task[NR_TASKS] = {&(init_task.task), };
-
 long user_stack [ PAGE_SIZE>>2 ] ;
-
 struct {
 	long * a;
 	short b;
@@ -90,7 +75,6 @@ void math_state_restore()
 		current->used_math=1;
 	}
 }
-
 /*
  *  'schedule()' is the scheduler function. This is GOOD CODE! There
  * probably won't be any reason to change this, as it should work well
@@ -105,9 +89,8 @@ void schedule(void)
 {
 	int i,next,c;
 	struct task_struct ** p;
-
+	struct task_struct *pnext=&(init_task.task);	/* !!! */
 /* check alarm, wake up any interruptible tasks that have got a signal */
-
 	for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 		if (*p) {
 			if ((*p)->alarm && (*p)->alarm < jiffies) {
@@ -118,9 +101,7 @@ void schedule(void)
 			(*p)->state==TASK_INTERRUPTIBLE)
 				(*p)->state=TASK_RUNNING;
 		}
-
 /* this is the scheduler proper: */
-
 	while (1) {
 		c = -1;
 		next = 0;
@@ -130,7 +111,7 @@ void schedule(void)
 			if (!*--p)
 				continue;
 			if ((*p)->state == TASK_RUNNING && (*p)->counter > c)
-				c = (*p)->counter, next = i;
+				c = (*p)->counter, next = i,pnext = *p;
 		}
 		if (c) break;
 		for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
@@ -138,20 +119,17 @@ void schedule(void)
 				(*p)->counter = ((*p)->counter >> 1) +
 						(*p)->priority;
 	}
-	switch_to(next);
+	switch_to(pnext,_LDT(next));
 }
-
 int sys_pause(void)
 {
 	current->state = TASK_INTERRUPTIBLE;
 	schedule();
 	return 0;
 }
-
 void sleep_on(struct task_struct **p)
 {
 	struct task_struct *tmp;
-
 	if (!p)
 		return;
 	if (current == &(init_task.task))
@@ -163,11 +141,9 @@ void sleep_on(struct task_struct **p)
 	if (tmp)
 		tmp->state=0;
 }
-
 void interruptible_sleep_on(struct task_struct **p)
 {
 	struct task_struct *tmp;
-
 	if (!p)
 		return;
 	if (current == &(init_task.task))
@@ -184,7 +160,6 @@ repeat:	current->state = TASK_INTERRUPTIBLE;
 	if (tmp)
 		tmp->state=0;
 }
-
 void wake_up(struct task_struct **p)
 {
 	if (p && *p) {
@@ -192,7 +167,6 @@ void wake_up(struct task_struct **p)
 		*p=NULL;
 	}
 }
-
 /*
  * OK, here are some floppy things that shouldn't be in the kernel
  * proper. They are here because the floppy needs a timer, and this
@@ -202,12 +176,10 @@ static struct task_struct * wait_motor[4] = {NULL,NULL,NULL,NULL};
 static int  mon_timer[4]={0,0,0,0};
 static int moff_timer[4]={0,0,0,0};
 unsigned char current_DOR = 0x0C;
-
 int ticks_to_floppy_on(unsigned int nr)
 {
 	extern unsigned char selected;
 	unsigned char mask = 0x10 << nr;
-
 	if (nr>3)
 		panic("floppy_on: nr>3");
 	moff_timer[nr]=10000;		/* 100 s = very big :-) */
@@ -228,7 +200,6 @@ int ticks_to_floppy_on(unsigned int nr)
 	sti();
 	return mon_timer[nr];
 }
-
 void floppy_on(unsigned int nr)
 {
 	cli();
@@ -236,17 +207,14 @@ void floppy_on(unsigned int nr)
 		sleep_on(nr+wait_motor);
 	sti();
 }
-
 void floppy_off(unsigned int nr)
 {
 	moff_timer[nr]=3*HZ;
 }
-
 void do_floppy_timer(void)
 {
 	int i;
 	unsigned char mask = 0x10;
-
 	for (i=0 ; i<4 ; i++,mask <<= 1) {
 		if (!(mask & current_DOR))
 			continue;
@@ -260,19 +228,15 @@ void do_floppy_timer(void)
 			moff_timer[i]--;
 	}
 }
-
 #define TIME_REQUESTS 64
-
 static struct timer_list {
 	long jiffies;
 	void (*fn)();
 	struct timer_list * next;
 } timer_list[TIME_REQUESTS], * next_timer = NULL;
-
 void add_timer(long jiffies, void (*fn)(void))
 {
 	struct timer_list * p;
-
 	if (!fn)
 		return;
 	cli();
@@ -301,21 +265,17 @@ void add_timer(long jiffies, void (*fn)(void))
 	}
 	sti();
 }
-
 void do_timer(long cpl)
 {
 	extern int beepcount;
 	extern void sysbeepstop(void);
-
 	if (beepcount)
 		if (!--beepcount)
 			sysbeepstop();
-
 	if (cpl)
 		current->utime++;
 	else
 		current->stime++;
-
 	if (next_timer) {
 		next_timer->jiffies--;
 		while (next_timer && next_timer->jiffies <= 0) {
@@ -334,59 +294,48 @@ void do_timer(long cpl)
 	if (!cpl) return;
 	schedule();
 }
-
 int sys_alarm(long seconds)
 {
 	int old = current->alarm;
-
 	if (old)
 		old = (old - jiffies) / HZ;
 	current->alarm = (seconds>0)?(jiffies+HZ*seconds):0;
 	return (old);
 }
-
 int sys_getpid(void)
 {
 	return current->pid;
 }
-
 int sys_getppid(void)
 {
 	return current->father;
 }
-
 int sys_getuid(void)
 {
 	return current->uid;
 }
-
 int sys_geteuid(void)
 {
 	return current->euid;
 }
-
 int sys_getgid(void)
 {
 	return current->gid;
 }
-
 int sys_getegid(void)
 {
 	return current->egid;
 }
-
 int sys_nice(long increment)
 {
 	if (current->priority-increment>0)
 		current->priority -= increment;
 	return 0;
 }
-
 void sched_init(void)
 {
 	int i;
 	struct desc_struct * p;
-
 	if (sizeof(struct sigaction) != 16)
 		panic("Struct sigaction MUST be 16 bytes");
 	set_tss_desc(gdt+FIRST_TSS_ENTRY,&(init_task.task.tss));

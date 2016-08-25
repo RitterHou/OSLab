@@ -3,7 +3,6 @@
  *
  *  (C) 1991  Linus Torvalds
  */
-
 /*
  *  'fork.c' contains the help-routines for the 'fork' system call
  * (see also system_call.s), and some misc functions ('verify_area').
@@ -11,20 +10,16 @@
  * management can be a bitch. See 'mm/mm.c': 'copy_page_tables()'
  */
 #include <errno.h>
-
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <asm/segment.h>
 #include <asm/system.h>
-
 extern void write_verify(unsigned long address);
-
+extern void first_return_from_kernel(void);
 long last_pid=0;
-
 void verify_area(void * addr,int size)
 {
 	unsigned long start;
-
 	start = (unsigned long) addr;
 	size += start & 0xfff;
 	start &= 0xfffff000;
@@ -35,12 +30,10 @@ void verify_area(void * addr,int size)
 		start += 4096;
 	}
 }
-
 int copy_mem(int nr,struct task_struct * p)
 {
 	unsigned long old_data_base,new_data_base,data_limit;
 	unsigned long old_code_base,new_code_base,code_limit;
-
 	code_limit=get_limit(0x0f);
 	data_limit=get_limit(0x17);
 	old_code_base = get_base(current->ldt[1]);
@@ -60,13 +53,12 @@ int copy_mem(int nr,struct task_struct * p)
 	}
 	return 0;
 }
-
 /*
  *  Ok, this is the main fork-routine. It copies the system process
  * information (task[nr]) and sets up the necessary registers. It
  * also copies the data segment in it's entirety.
  */
-int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
+int copy_process(long addr,int nr,long ebp,long edi,long esi,long gs,long none,
 		long ebx,long ecx,long edx,
 		long fs,long es,long ds,
 		long eip,long cs,long eflags,long esp,long ss)
@@ -74,8 +66,9 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	struct task_struct *p;
 	int i;
 	struct file *f;
-
+	long *krnstack;
 	p = (struct task_struct *) get_free_page();
+	krnstack = (long)(PAGE_SIZE+(long)p);	/* !!! */
 	if (!p)
 		return -EAGAIN;
 	task[nr] = p;
@@ -84,6 +77,24 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->pid = last_pid;
 	p->father = current->pid;
 	p->counter = p->priority;
+	*(--krnstack) = ss & 0xffff;
+	*(--krnstack) = esp;
+	*(--krnstack) = eflags;
+	*(--krnstack) = cs & 0xffff;
+	*(--krnstack) = eip;
+	*(--krnstack) = ds & 0xffff;
+	*(--krnstack) = es & 0xffff;
+	*(--krnstack) = fs & 0xffff;
+	*(--krnstack) = gs & 0xffff;
+	*(--krnstack) = esi;
+	*(--krnstack) = edi;
+	*(--krnstack) = edx;
+	*(--krnstack) = (long)first_return_from_kernel;
+	*(--krnstack) = ebp;
+	*(--krnstack) = ecx;
+	*(--krnstack) = ebx;
+	*(--krnstack) = 0;
+	p->kernelstack = krnstack;
 	p->signal = 0;
 	p->alarm = 0;
 	p->leader = 0;		/* process leadership doesn't inherit */
@@ -132,11 +143,9 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->state = TASK_RUNNING;	/* do this last, just in case */
 	return last_pid;
 }
-
 int find_empty_process(void)
 {
 	int i;
-
 	repeat:
 		if ((++last_pid)<0) last_pid=1;
 		for(i=0 ; i<NR_TASKS ; i++)

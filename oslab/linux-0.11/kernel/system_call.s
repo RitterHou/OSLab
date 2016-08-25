@@ -3,7 +3,6 @@
  *
  *  (C) 1991  Linus Torvalds
  */
-
 /*
  *  system_call.s  contains the system-call low-level handling routines.
  * This also contains the timer-interrupt handler, as some of the code is
@@ -29,9 +28,9 @@
  *	28(%esp) - %oldesp
  *	2C(%esp) - %oldss
  */
-
+ESP0	= 4
+KERNEL_STACK	= 12
 SIG_CHLD	= 17
-
 EAX		= 0x00
 EBX		= 0x04
 ECX		= 0x08
@@ -44,22 +43,19 @@ CS		= 0x20
 EFLAGS		= 0x24
 OLDESP		= 0x28
 OLDSS		= 0x2C
-
 state	= 0		# these are offsets into the task-struct.
 counter	= 4
 priority = 8
-signal	= 12
-sigaction = 16		# MUST be 16 (=len of sigaction)
-blocked = (33*16)
-
+kernelstack = 12
+signal	= 16
+sigaction = 20		# MUST be 16 (=len of sigaction)
+blocked = (37*16)
 # offsets within sigaction
 sa_handler = 0
 sa_mask = 4
 sa_flags = 8
 sa_restorer = 12
-
 nr_system_calls = 72
-
 /*
  * Ok, I get parallel printer interrupts while using the floppy for some
  * strange reason. Urgel. Now I just ignore them.
@@ -67,7 +63,46 @@ nr_system_calls = 72
 .globl system_call,sys_fork,timer_interrupt,sys_execve
 .globl hd_interrupt,floppy_interrupt,parallel_interrupt
 .globl device_not_available, coprocessor_error
-
+.globl switch_to,first_return_from_kernel
+.align 2
+switch_to:
+	pushl %ebp
+	movl %esp,%ebp
+	pushl %ecx
+	pushl %ebx
+	pushl %eax
+	movl 8(%ebp),%ebx
+	cmpl %ebx,current
+	je 1f
+	movl %ebx,%eax
+	xchgl %eax,current
+	movl tss,%ecx
+	addl $4096,%ebx
+	movl %ebx,ESP0(%ecx)
+	movl %esp,KERNEL_STACK(%eax)
+	movl 8(%ebp),%ebx
+	movl KERNEL_STACK(%ebx),%esp
+	movl 12(%ebp),%ecx
+	lldt %cx
+	movl $0x17,%ecx
+	mov %cx,%fs
+	cmpl %eax,last_task_used_math
+	jne 1f
+1:	popl %eax
+	popl %ebx
+	popl %ecx
+	popl %ebp
+	ret
+.align 2
+first_return_from_kernel:
+	popl %edx
+	popl %edi
+	popl %esi
+	pop	%gs
+	pop %fs
+	pop %es
+	pop %ds
+	iret
 .align 2
 bad_sys_call:
 	movl $-1,%eax
@@ -126,7 +161,6 @@ ret_from_sys_call:
 	pop %es
 	pop %ds
 	iret
-
 .align 2
 coprocessor_error:
 	push %ds
@@ -143,7 +177,6 @@ coprocessor_error:
 	mov %ax,%fs
 	pushl $ret_from_sys_call
 	jmp math_error
-
 .align 2
 device_not_available:
 	push %ds
@@ -171,7 +204,6 @@ device_not_available:
 	popl %esi
 	popl %ebp
 	ret
-
 .align 2
 timer_interrupt:
 	push %ds		# save ds,es and put kernel data space
@@ -195,7 +227,6 @@ timer_interrupt:
 	call do_timer		# 'do_timer(long CPL)' does everything from
 	addl $4,%esp		# task switching to accounting ...
 	jmp ret_from_sys_call
-
 .align 2
 sys_execve:
 	lea EIP(%esp),%eax
@@ -203,7 +234,6 @@ sys_execve:
 	call do_execve
 	addl $4,%esp
 	ret
-
 .align 2
 sys_fork:
 	call find_empty_process
@@ -214,10 +244,10 @@ sys_fork:
 	pushl %edi
 	pushl %ebp
 	pushl %eax
+	pushl $first_return_from_kernel
 	call copy_process
-	addl $20,%esp
+	addl $24,%esp
 1:	ret
-
 hd_interrupt:
 	pushl %eax
 	pushl %ecx
@@ -248,7 +278,6 @@ hd_interrupt:
 	popl %ecx
 	popl %eax
 	iret
-
 floppy_interrupt:
 	pushl %eax
 	pushl %ecx
@@ -276,7 +305,6 @@ floppy_interrupt:
 	popl %ecx
 	popl %eax
 	iret
-
 parallel_interrupt:
 	pushl %eax
 	movb $0x20,%al
