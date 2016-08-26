@@ -255,15 +255,6 @@ func:
 	jb end_func
 	cmpb $11,%al
 	ja end_func
-ok_f12:
-    pushl %eax
-    pushl %ecx
-    pushl %edx
-    call switch_f12
-    popl %edx
-    popl %ecx
-    popl %eax
-    jmp ok_func
 ok_func:
 	cmpl $4,%ecx		
 	jl end_func
@@ -281,7 +272,7 @@ func_table:
 	.long 0x455b5b1b,0x465b5b1b,0x475b5b1b,0x485b5b1b
 	.long 0x495b5b1b,0x4a5b5b1b,0x4b5b5b1b,0x4c5b5b1b
 
-# 303 "keyboard.S"
+# 294 "keyboard.S"
 
 key_map:
 	.byte 0,27
@@ -332,7 +323,7 @@ alt_map:
 	.byte '|
 	.fill 10,1,0
 
-# 458 "keyboard.S"
+# 449 "keyboard.S"
 
 
 

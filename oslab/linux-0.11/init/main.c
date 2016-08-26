@@ -59,6 +59,9 @@ extern long startup_time;
 #define DRIVE_INFO (*(struct drive_info *)0x90080)
 #define ORIG_ROOT_DEV (*(unsigned short *)0x901FC)
 
+_syscall2(int,mkdir,const char*, name,mode_t,mode)
+_syscall3(int,mknod,const char*,filename,mode_t,mode,dev_t,dev)
+
 /*
  * Yeah, yeah, it's ugly, but I cannot find how to do this correctly
  * and this seems to work. I anybody has more info on the real-time
@@ -107,6 +110,7 @@ void main(void)		/* This really IS void, no error here. */
  * Interrupts are still disabled. Do necessary setups, then
  * enable them
  */
+
  	ROOT_DEV = ORIG_ROOT_DEV;
  	drive_info = DRIVE_INFO;
 	memory_end = (1<<20) + (EXT_MEM_K<<10);
@@ -135,6 +139,13 @@ void main(void)		/* This really IS void, no error here. */
 	floppy_init();
 	sti();
 	move_to_user_mode();
+	setup((void *) &drive_info); //初始化磁盘工作
+    /*在根节点下创建一个新的子节点，并新建两个内存文件*/
+    mkdir("proc",0755);
+    mknod("/proc/psinfo",S_IFPROC|0444,0);
+    mknod("/proc/hdinfo",S_IFPROC|0444,1);
+    /*melon - 2015-10-22*/
+    (void) open("/dev/tty0",O_RDWR,0);  //打开终端
 	if (!fork()) {		/* we count on this going ok */
 		init();
 	}
