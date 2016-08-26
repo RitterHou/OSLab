@@ -224,15 +224,6 @@ func:
 	jb end_func
 	cmpb $11,%al
 	ja end_func
-ok_f12:
-    pushl %eax
-    pushl %ecx
-    pushl %edx
-    call switch_f12
-    popl %edx
-    popl %ecx
-    popl %eax
-    jmp ok_func
 ok_func:
 	cmpl $4,%ecx		/* check that there is enough room */
 	jl end_func

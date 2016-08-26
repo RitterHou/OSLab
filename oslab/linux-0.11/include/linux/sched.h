@@ -1,7 +1,6 @@
 #ifndef _SCHED_H
 #define _SCHED_H
 
-int f12_state;
 #define NR_TASKS 64
 #define HZ 100
 
